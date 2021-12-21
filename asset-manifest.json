@@ -1,26 +1,23 @@
 {
   "files": {
-    "main.css": "/static/css/main.fd5ad11e.chunk.css",
-    "main.js": "/static/js/main.b92c3f28.chunk.js",
-    "main.js.map": "/static/js/main.b92c3f28.chunk.js.map",
-    "runtime-main.js": "/static/js/runtime-main.6f101543.js",
-    "runtime-main.js.map": "/static/js/runtime-main.6f101543.js.map",
-    "static/css/2.65139923.chunk.css": "/static/css/2.65139923.chunk.css",
-    "static/js/2.015b05f5.chunk.js": "/static/js/2.015b05f5.chunk.js",
-    "static/js/2.015b05f5.chunk.js.map": "/static/js/2.015b05f5.chunk.js.map",
-    "static/js/3.947538b9.chunk.js": "/static/js/3.947538b9.chunk.js",
-    "static/js/3.947538b9.chunk.js.map": "/static/js/3.947538b9.chunk.js.map",
-    "index.html": "/index.html",
-    "static/css/2.65139923.chunk.css.map": "/static/css/2.65139923.chunk.css.map",
-    "static/css/main.fd5ad11e.chunk.css.map": "/static/css/main.fd5ad11e.chunk.css.map",
-    "static/js/2.015b05f5.chunk.js.LICENSE.txt": "/static/js/2.015b05f5.chunk.js.LICENSE.txt",
-    "static/media/bootstrap.css": "/static/media/glyphicons-halflings-regular.be810be3.woff2"
+    "main.css": "/harmony-allowance/static/css/main.a846b254.chunk.css",
+    "main.js": "/harmony-allowance/static/js/main.a6085b6f.chunk.js",
+    "main.js.map": "/harmony-allowance/static/js/main.a6085b6f.chunk.js.map",
+    "runtime-main.js": "/harmony-allowance/static/js/runtime-main.d9b3edb5.js",
+    "runtime-main.js.map": "/harmony-allowance/static/js/runtime-main.d9b3edb5.js.map",
+    "static/css/2.f4c56af9.chunk.css": "/harmony-allowance/static/css/2.f4c56af9.chunk.css",
+    "static/js/2.8ddc4940.chunk.js": "/harmony-allowance/static/js/2.8ddc4940.chunk.js",
+    "static/js/2.8ddc4940.chunk.js.map": "/harmony-allowance/static/js/2.8ddc4940.chunk.js.map",
+    "index.html": "/harmony-allowance/index.html",
+    "static/css/2.f4c56af9.chunk.css.map": "/harmony-allowance/static/css/2.f4c56af9.chunk.css.map",
+    "static/css/main.a846b254.chunk.css.map": "/harmony-allowance/static/css/main.a846b254.chunk.css.map",
+    "static/js/2.8ddc4940.chunk.js.LICENSE.txt": "/harmony-allowance/static/js/2.8ddc4940.chunk.js.LICENSE.txt"
   },
   "entrypoints": [
-    "static/js/runtime-main.6f101543.js",
-    "static/css/2.65139923.chunk.css",
-    "static/js/2.015b05f5.chunk.js",
-    "static/css/main.fd5ad11e.chunk.css",
-    "static/js/main.b92c3f28.chunk.js"
+    "static/js/runtime-main.d9b3edb5.js",
+    "static/css/2.f4c56af9.chunk.css",
+    "static/js/2.8ddc4940.chunk.js",
+    "static/css/main.a846b254.chunk.css",
+    "static/js/main.a6085b6f.chunk.js"
   ]
 }
