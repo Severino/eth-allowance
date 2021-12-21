@@ -1,72 +1,179 @@
-import React, { Component } from 'react';
-import { getQuery, getApproveTransactions, getName, getEtherScanPage } from "../helpers/helpers";
+import React, { Component } from "react";
+import { getEndpoint, fetchTransactions, getName } from "../helpers/helpers";
 import Allowance from "./allowance";
+import Spinner from "./spinner";
+import Tip from "./tip";
+import WalletConnect from "./walletconnect";
+import { toast } from "react-toastify";
 
 class allowances extends Component {
+  state = {
+    renderedTransactions: [],
+    account: undefined,
+    fee: null,
+    loading: false,
+    totalTransactionCount: null,
+    currentTransactionCount: null,
+  };
 
-    state = {
-        txs: undefined,
-        account: undefined
-    };
+  constructor(props) {
+    super(props);
+    this.props = props;
+    this.walletUpdated = this.walletUpdated.bind(this);
+    this.statusChanged = this.statusChanged.bind(this);
+  }
 
-    constructor(props) {
-        super(props);
-        this.props = props;
-    }
-
-    componentDidMount() {
-        document.getElementById("loading").hidden = false;
-        this.init().then((obj) => {
-            this.setState(obj);
-            document.getElementById("loading").hidden = true;
-            document.getElementById("revokeAll").hidden = false;
-        }).catch((err) => {
-            document.getElementById("loading").innerText = err;
+  componentDidMount() {
+    if (this.state.account) {
+      this.init()
+        .then((obj) => {
+          this.setState(obj);
+        })
+        .catch((err) => {
+          this.logError(err);
         });
     }
+  }
 
-    async init() {
-        let account = null;
+  async init() {
+    if (!this.state.account || !this.state.network) return null;
+
+    try {
+      this.setState({ loading: true });
+
+      const endpoint = getEndpoint(this.state.network);
+      if (!endpoint)
+        throw new Error("Wrong network! Change network and reload.");
+
+      let txs = await fetchTransactions(endpoint, this.state.account);
+      txs = txs.sort((a, b) => (a.timestamp > b.timestamp ? -1 : 1));
+
+      this.setState({
+        totalTransactionCount: txs.length,
+        currentTransactionCount: 0,
+      });
+
+      for (let i = 0; i < txs.length; i++) {
+        let tx = txs[i];
         try {
-            try {
-                const accounts = await this.props.web3.eth.requestAccounts();
-                account = accounts[0];
-            } catch (e) {
-                const accounts = await window.ethereum.enable();
-                account = accounts[0];
-            }
-            const chainId = await this.props.web3.eth.getChainId();
-            this.setState({ chainId: chainId });
-            const query = getQuery(chainId, account);
-            const txs = await getApproveTransactions(query);
-            for(const index in txs) {
-                txs[index].contractName = await getName(txs[index].contract);
-                txs[index].approvedName = await getName(txs[index].approved);
-            }
-            return {
-                txs: txs,
-                account: account
-            };
+          tx.contractName = await getName(txs[i].contract);
         } catch (e) {
-            document.getElementById("loading").hidden = false;
-            document.getElementById("loading").innerText = e;
+          tx.contractName = "COULD NOT FETCH NAME: " + e;
         }
-    }
 
-    render() {
-        let elements = "";
-        if(this.state.txs !== undefined && this.state.chainId !== undefined) {
-            const etherscanUrl = getEtherScanPage(this.state.chainId);
-            elements = this.state.txs.map((tx) => {
-                return <Allowance etherscanURL={etherscanUrl} tx={tx} web3={this.props.web3} id={tx.contract} account={this.state.account}/>
-            });
+        try {
+          tx.approvedName = await getName(txs[i].approved);
+        } catch (e) {
+          tx.approvedName = "COULD NOT FETCH NAME: " + e;
         }
+
+        tx.status = "none";
+        tx.id = i;
+        this.setState((prevState) => ({
+          renderedTransactions: [...prevState.renderedTransactions, tx],
+          currentTransactionCount: i + 1,
+        }));
+      }
+
+      this.setState({
+        loading: false,
+      });
+    } catch (e) {
+      this.setError(e);
+    }
+  }
+
+  setError(msg) {
+    toast.error("Something went wrong!");
+    console.error(msg);
+  }
+
+  statusChanged(status, tx) {
+    let txs = this.state.renderedTransactions;
+    let idx = txs.findIndex((arr_tx) => arr_tx.hash === tx.hash);
+    if (idx !== -1) {
+      txs[idx].status = status;
+      this.forceUpdate();
+    }
+  }
+
+  render() {
+    let elements = "";
+    if (this.state.renderedTransactions.length > 0) {
+      elements = this.state.renderedTransactions.map((tx) => {
         return (
-            <div>
-                {elements}
-            </div>
-        )
+          <Allowance
+            tx={tx}
+            key={"allowance-" + tx.hash}
+            web3={this.props.web3}
+            id={tx.contract}
+            account={this.state.account}
+            status={tx.status}
+            onStatusChange={this.statusChanged}
+          />
+        );
+      });
     }
-}
 
+    function RenderTable(props) {
+      if (!props.elements) return <div />;
+      return (
+        <table>
+          <thead>
+            <tr>
+              <td className="grid-items">#</td>
+              <td className="grid-items">Time</td>
+              <td className="grid-items">Contract</td>
+              <td className="grid-items">Approved Address</td>
+              <td className="grid-items">Allowance</td>
+              <td className="grid-items">Revoke</td>
+            </tr>
+          </thead>
+          <tbody>{props.elements}</tbody>
+        </table>
+      );
+    }
+
+    return (
+      <div className="allowance">
+        <WalletConnect
+          account={this.state.account}
+          network={this.state.network}
+          update={this.walletUpdated}
+        />
+
+        <Tip
+          account={this.state.account}
+          address="0x23F822FC0CA75622cF6C48A4fba508E068f0E15b"
+        />
+        {this.renderSpinner(this.state.loading)}
+        <RenderTable elements={elements} />
+      </div>
+    );
+  }
+
+  renderSpinner(loading) {
+    if (loading)
+      return (
+        <Spinner
+          total={this.state.totalTransactionCount}
+          current={this.state.currentTransactionCount}
+        />
+      );
+    else return <div />;
+  }
+
+  walletUpdated({ account, network } = {}) {
+    this.setState({
+      account,
+      network,
+    });
+  }
+
+  componentDidUpdate(prevProps, prevState) {
+    if (prevState.account !== this.state.account) {
+      this.init();
+    }
+  }
+}
 export default allowances;
