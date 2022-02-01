@@ -1,5 +1,5 @@
 import React, { Component } from "react";
-import { getEndpoint, fetchTransactions, getName } from "../helpers/helpers";
+import { getEndpoint, fetchTransactions, getName, getApprovalTransactions, noneAllowance } from "../helpers/helpers";
 import Allowance from "./allowance";
 import Spinner from "./spinner";
 import Tip from "./tip";
@@ -8,12 +8,16 @@ import { toast } from "react-toastify";
 
 class allowances extends Component {
   state = {
-    renderedTransactions: [],
+    approvalMap: {},
+    approveTransactions: [],
     account: undefined,
     fee: null,
     loading: false,
     totalTransactionCount: null,
     currentTransactionCount: null,
+    page: 0,
+    pageNum: 25,
+    moreTransactions: true
   };
 
   constructor(props) {
@@ -21,6 +25,7 @@ class allowances extends Component {
     this.props = props;
     this.walletUpdated = this.walletUpdated.bind(this);
     this.statusChanged = this.statusChanged.bind(this);
+    this.loadMore = this.loadMore.bind(this)
   }
 
   componentDidMount() {
@@ -38,6 +43,10 @@ class allowances extends Component {
   async init() {
     if (!this.state.account || !this.state.network) return null;
 
+    await this.updateTransactions()
+  }
+
+  async updateTransactions() {
     try {
       this.setState({ loading: true });
 
@@ -45,38 +54,63 @@ class allowances extends Component {
       if (!endpoint)
         throw new Error("Wrong network! Change network and reload.");
 
-      let txs = await fetchTransactions(endpoint, this.state.account);
-      txs = txs.sort((a, b) => (a.timestamp > b.timestamp ? -1 : 1));
-
-      this.setState({
-        totalTransactionCount: txs.length,
-        currentTransactionCount: 0,
+      let txs = await fetchTransactions(endpoint, this.state.account, {
+        page: this.state.page,
+        num: this.state.pageNum
       });
 
-      for (let i = 0; i < txs.length; i++) {
-        let tx = txs[i];
-        try {
-          tx.contractName = await getName(txs[i].contract);
-        } catch (e) {
-          tx.contractName = "COULD NOT FETCH NAME: " + e;
-        }
-
-        try {
-          tx.approvedName = await getName(txs[i].approved);
-        } catch (e) {
-          tx.approvedName = "COULD NOT FETCH NAME: " + e;
-        }
-
-        tx.status = "none";
-        tx.id = i;
-        this.setState((prevState) => ({
-          renderedTransactions: [...prevState.renderedTransactions, tx],
-          currentTransactionCount: i + 1,
-        }));
+      if (txs.length < this.state.pageNum) {
+        await this.setState({
+          moreTransactions: false
+        })
       }
 
-      this.setState({
+      const approvalMap = await getApprovalTransactions(txs)
+      const previousApprovalMap = this.state.approvalMap
+
+      /**
+       * Update approval map
+       */
+      for (let [contractAddress, tokens] of Object.entries(approvalMap)) {
+        if (!previousApprovalMap[contractAddress]) previousApprovalMap[contractAddress] = {}
+        for (let [tokenAddress, approvalObjects] of Object.entries(tokens)) {
+          if (!previousApprovalMap[contractAddress][tokenAddress]) previousApprovalMap[contractAddress][tokenAddress] = []
+          previousApprovalMap[contractAddress][tokenAddress].push(...approvalObjects)
+        }
+      }
+
+
+      let approveTransactions = []
+      for (let tokens of Object.values(previousApprovalMap)) {
+        for (let approvalObjects of Object.values(tokens)) {
+          const newestApproval = approvalObjects[0]
+
+          if(approvalObjects[0].allowance !== noneAllowance){
+            const approval = approvalObjects[0]
+            approveTransactions.push(approval)
+            approval.tokenName = await getName(approval.token)
+          }
+
+
+          for (let i = 1; i < approvalObjects.length; i++) {
+            if (newestApproval.timestamp - approvalObjects[i].timestamp < 0) {
+              console.error("CODE CONTAINS ERRORS: OLDER OBJECT WAS ADDED BEFORE!!!!")
+            }
+          }
+        }
+      }
+
+      approveTransactions = approveTransactions.sort((a, b) => {
+        return b.timestamp - a.timestamp
+      })
+
+
+
+
+      await this.setState({
         loading: false,
+        approveTransactions,
+        approvalMap: previousApprovalMap
       });
     } catch (e) {
       this.setError(e);
@@ -89,7 +123,7 @@ class allowances extends Component {
   }
 
   statusChanged(status, tx) {
-    let txs = this.state.renderedTransactions;
+    let txs = this.state.approveTransactions;
     let idx = txs.findIndex((arr_tx) => arr_tx.hash === tx.hash);
     if (idx !== -1) {
       txs[idx].status = status;
@@ -97,10 +131,18 @@ class allowances extends Component {
     }
   }
 
+  async loadMore() {
+    const page = this.state.page + 1
+    await this.setState({
+      page
+    })
+    this.updateTransactions()
+  }
+
   render() {
     let elements = "";
-    if (this.state.renderedTransactions.length > 0) {
-      elements = this.state.renderedTransactions.map((tx) => {
+    if (this.state.approveTransactions.length > 0) {
+      elements = this.state.approveTransactions.map((tx) => {
         return (
           <Allowance
             tx={tx}
@@ -116,15 +158,14 @@ class allowances extends Component {
     }
 
     function RenderTable(props) {
-      if (!props.elements) return <div />;
       return (
         <table>
           <thead>
             <tr>
-              <td className="grid-items">#</td>
               <td className="grid-items">Time</td>
-              <td className="grid-items">Contract</td>
+              <td className="grid-items">Token</td>
               <td className="grid-items">Approved Address</td>
+              <td className="grid-items">Tx.-Hash</td>
               <td className="grid-items">Allowance</td>
               <td className="grid-items">Revoke</td>
             </tr>
@@ -132,6 +173,27 @@ class allowances extends Component {
           <tbody>{props.elements}</tbody>
         </table>
       );
+    }
+    const that = this
+    function TransactionsContainer(props) {
+      return (
+        <div>
+          <Tip
+            account={props.account}
+            address="0x23F822FC0CA75622cF6C48A4fba508E068f0E15b"
+          />
+
+          <RenderTable elements={elements} />
+          {(props.loading) ?
+            <Spinner />
+            : (props.transactions.length === 0) ? <div className="info">No Approval Transactions Found</div> : (that.state.moreTransactions) ? <button className="more-btn center" onClick={that.loadMore}>Load More ...</button> : <div className="info">End Of Transactions History</div>
+          }
+
+
+
+
+        </div>
+      )
     }
 
     return (
@@ -141,26 +203,10 @@ class allowances extends Component {
           network={this.state.network}
           update={this.walletUpdated}
         />
-
-        <Tip
-          account={this.state.account}
-          address="0x23F822FC0CA75622cF6C48A4fba508E068f0E15b"
-        />
-        {this.renderSpinner(this.state.loading)}
-        <RenderTable elements={elements} />
+        {((this.state.account) ?
+          <TransactionsContainer account={this.state.account} loading={this.state.loading} transactions={this.state.approveTransactions} /> : "")}
       </div>
     );
-  }
-
-  renderSpinner(loading) {
-    if (loading)
-      return (
-        <Spinner
-          total={this.state.totalTransactionCount}
-          current={this.state.currentTransactionCount}
-        />
-      );
-    else return <div />;
   }
 
   walletUpdated({ account, network } = {}) {

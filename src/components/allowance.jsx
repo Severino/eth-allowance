@@ -10,6 +10,8 @@ import {
 } from "@mdi/js";
 
 import { toast } from "react-toastify";
+import { getExplorerFromChainId, linkToAddress, linkToTransaction } from "../helpers/explorer";
+import { shorten } from "../helpers/transaction";
 
 class allowance extends Component {
   constructor(props) {
@@ -37,21 +39,22 @@ class allowance extends Component {
   setRevokeClick() {
     // set the contract and make an approve transaction with a zero allowance
     const { web3 } = this.props;
-    const contract = new web3.eth.Contract(ERC20ABI, this.props.tx.contract);
+    const contract = new web3.eth.Contract(ERC20ABI, this.props.tx.token);
     is721(contract, this.props.tx.allowanceUnEdited).then((result) => {
       if (result) {
         //revoke erc721 by nulling the address
-        this.initRevoke();
-        contract.methods
-          .approve(0, this.props.tx.allowanceUnEdited)
-          .send({ from: this.props.account })
-          .then(this.revokeSuccess)
-          .catch(this.revokeFailed);
+        throw new Error("ERC 721 is not supported yet!")
+        // this.initRevoke();
+        // contract.methods
+        //   .approve(0, this.props.tx.allowanceUnEdited)
+        //   .send({ from: this.props.account })
+        //   .then(this.revokeSuccess)
+        //   .catch(this.revokeFailed);
       } else {
         // revoke erc20 by nulling approval amount
         this.initRevoke();
         contract.methods
-          .approve(this.props.tx.approved, 0)
+          .approve(this.props.tx.contract, 0)
           .send({ from: this.props.account })
           .then(this.revokeSuccess)
           .catch(this.revokeFailed);
@@ -109,21 +112,24 @@ class allowance extends Component {
   render() {
     return (
       <tr key={"allowance-nr-" + this.props.tx.hash}>
-        <td className="grid-items">{parseInt(this.props.tx.id) + 1}</td>
         <td className="grid-items">
           {new Date(parseInt(this.props.tx.timestamp) * 1000).toLocaleString()}
         </td>
         <td className="grid-items">
-          <a href={this.props.tx.harmonyExplorerUrl + this.props.tx.contract}>
-            {this.props.tx.contractName}
+          <a href={linkToAddress(this.props.tx.token)} target="_blank" rel='noreferrer'>
+            {this.props.tx.tokenName || shorten(this.props.tx.token)}
           </a>
         </td>
         <td className="grid-items">
-          <a href={this.props.tx.harmonyExplorerUrl + this.props.tx.approved}>
-            {this.props.tx.approvedName}
+          <a href={linkToAddress(this.props.tx.contract)} target="_blank" rel='noreferrer'>
+            {shorten(this.props.tx.contract)}
           </a>
         </td>
-        <td className="grid-items">{this.props.tx.allowance}</td>
+        <td>
+        <a href={linkToTransaction(this.props.tx.hash)} target="_blank" rel='noreferrer'>
+            {shorten(this.props.tx.hash)}
+          </a></td>
+        <td className="grid-items">{this.props.tx.allowanceString }</td>
         <td className="grid-items">{this.renderRevokeButton()}</td>
       </tr>
     );
