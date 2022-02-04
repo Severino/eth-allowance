@@ -1,18 +1,21 @@
+import { toast } from 'react-toastify';
 import { shorten } from './transaction.js';
 
-let Web3 = require('web3');
-let web3 = new Web3(Web3.givenProvider);
-let request = require('superagent');
+const Web3 = require('web3');
+const web3 = new Web3(Web3.givenProvider);
+const BN = web3.utils.BN;
+const request = require('superagent');
 const approvalHash = "0x095ea7b3";
-export const unlimitedAllowance = "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
-export const noneAllowance = "0000000000000000000000000000000000000000000000000000000000000000";
-
 const { ERC20ABI, ERC721ABI } = require("./ABI.js");
-const vendors = require("../vendors")
 const {
     toBech32,
     fromBech32,
 } = require('@harmony-js/crypto');
+
+
+export const unlimitedAllowance = "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
+export const noneAllowance = "0000000000000000000000000000000000000000000000000000000000000000";
+
 
 /**
  * Returns the rendpoint URI if the chainId is supported,
@@ -24,7 +27,7 @@ export function getEndpoint(chainId) {
 
     switch (parseInt(chainId, 10)) {
         case 1666600000:
-            return "https://api.harmony.one"
+            return "https://harmony-0-rpc.gateway.pokt.network"
         case 1666700000:
             return "https://api.s0.pops.one"
         default:
@@ -113,22 +116,44 @@ export async function getApprovalTransactions(transactions) {
     return approveTransactions;
 }
 
+export function getERC20Contract(address) {
+    return new web3.eth.Contract(ERC20ABI, address);
+}
+
 export async function getName(contractAddress) {
-    let vendor = vendors[contractAddress]
-    const abi = vendor?.abi || ERC20ABI
-
-    let contract = new web3.eth.Contract(abi, contractAddress);
-
-    let name
+    let name = shorten(contractAddress, { length: 4 })
     try {
+        const contract = getERC20Contract(contractAddress)
         name = await contract.methods.name().call();
     } catch (e) {
         // name not found, just use contract address
         console.error(e);
-        name = vendor?.name || shorten(contractAddress, { length: 4 })
     }
 
     return name
+}
+
+export async function fetchAllowance(account, token, spender) {
+    let allowance = undefined
+    try {
+        const contract = getERC20Contract(token)
+        const _allowance = await contract.methods.allowance(account, spender).call()
+        const decimals = await contract.methods.decimals().call()
+        const floatingPointPrecision = (decimals - 6 > 0) ? 6 : decimals
+        const floatedDecimals = decimals - floatingPointPrecision
+        const allowanceBN = new BN(_allowance).div(new BN(10).pow(new BN(floatedDecimals)))
+        const max = 1000000000 * Math.pow(10, floatingPointPrecision)
+
+        allowance = (_allowance === "0") ? "0" :
+            (allowanceBN.gt(new BN(max))) ? "> 1 Billion" :
+                (allowanceBN.eq(new BN(0))) ? `< 0.${"0".repeat(floatingPointPrecision)}` :
+                    (allowanceBN.toNumber() / (Math.pow(10, floatingPointPrecision)).toFixed(floatingPointPrecision))
+    } catch (e) {
+        const err_str = "Could not get allowance!"
+        toast.error(err_str)
+        console.error(err_str, e)
+    }
+    return allowance
 }
 
 export async function is721(contractAddress, tokenId) {

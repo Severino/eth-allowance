@@ -7,9 +7,52 @@ import 'react-toastify/dist/ReactToastify.css';
 const web3 = new Web3(Web3.givenProvider);
 
 
+
+
+const agreementStorageName = 'experimental-aggreement'
+
+function getAgreement() {
+
+    let agreement = {
+        agreed: false,
+        timestamp: Date.now()
+    }
+
+    try {
+        const str = window.localStorage.getItem(agreementStorageName)
+        let storedAgreement = JSON.parse(str)
+        if (storedAgreement.agreed && storedAgreement.timestamp) {
+            const days = 30
+            if (Date.now() - storedAgreement.timestamp > days * 24 * 60 * 60 * 1000) {
+                storedAgreement.agreed = false
+            }
+            agreement = storeAgreement
+        }
+    } catch (e) {
+        console.warn(`Could not load stored agreement.`)
+    }
+
+    return agreement.agreed
+}
+
+function storeAgreement(val) {
+    window.localStorage.setItem(agreementStorageName, JSON.stringify({
+        timestamp: (new Date()).getTime(),
+        agreed: val
+    }))
+}
+
 function App() {
 
-    const [agreed, setAgreed] = useState(false)
+    const storedAgreement = getAgreement()
+
+
+    const [agreed, setAgreed] = useState(storedAgreement)
+
+    function agree() {
+        setAgreed(true)
+        storeAgreement(true)
+    }
 
     return (
         <div className="content-wrapper">
@@ -28,7 +71,7 @@ function App() {
                                 it on your own risk!</b>
                         </p>
 
-                        <button onClick={() => setAgreed(true)}>Okay</button>
+                        <button onClick={agree}>Okay</button>
                     </div>
                 </div>
             }

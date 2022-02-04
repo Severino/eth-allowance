@@ -29,14 +29,16 @@ export default class Tip extends Component {
               running!
             </p>
 
-            <input
-              type="number"
-              value={this.state.value}
-              onInput={this.updateValue}
-            />
-            <button id="tip-button" onClick={this.sendTip}>
-              Tip
-            </button>
+            <div className="input">
+              <input
+                type="number"
+                value={this.state.value}
+                onInput={this.updateValue}
+              />
+              <button id="tip-button" onClick={this.sendTip}>
+                Tip
+              </button>
+            </div>
           </div>
         )}
 

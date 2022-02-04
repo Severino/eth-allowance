@@ -1,5 +1,5 @@
-import React, { Component, useState } from "react";
-import { is721 } from "../helpers/helpers";
+import React, { Component } from "react";
+import { fetchAllowance, is721 } from "../helpers/helpers";
 import dapps from "../helpers/dapps";
 import { ERC20ABI } from "../helpers/ABI";
 import Icon from "@mdi/react";
@@ -7,10 +7,11 @@ import {
   mdiCancel,
   mdiCheckboxBlankCircleOutline,
   mdiCheckboxMarkedCircleOutline,
+  mdiSync,
 } from "@mdi/js";
 
 import { toast } from "react-toastify";
-import { getExplorerFromChainId, linkToAddress, linkToTransaction } from "../helpers/explorer";
+import { linkToAddress, linkToTransaction } from "../helpers/explorer";
 import { shorten } from "../helpers/transaction";
 
 class allowance extends Component {
@@ -18,11 +19,19 @@ class allowance extends Component {
     super(props);
     this.props = props;
 
+
+    this.state = {
+      allowance: null
+    }
+
     this.setRevokeClick = this.setRevokeClick.bind(this);
     this.dappURL = this.dappURL.bind(this);
     this.initRevoke = this.initRevoke.bind(this);
     this.revokeSuccess = this.revokeSuccess.bind(this);
     this.revokeFailed = this.revokeFailed.bind(this);
+    this.getAllowance = this.getAllowance.bind(this)
+    this.requestAllowance = this.requestAllowance.bind(this)
+
   }
 
   dappURL() {
@@ -68,7 +77,6 @@ class allowance extends Component {
 
   revokeSuccess(receipt) {
     toast.success("Successfully Revoked!");
-    console.log(receipt);
     this.props.onStatusChange("success", this.props.tx);
   }
 
@@ -100,18 +108,38 @@ class allowance extends Component {
         <button
           className="icon-btn"
           name="revoke"
-          onClick={() => {
-            this.setRevokeClick();
-          }}
+          onClick={
+            this.setRevokeClick
+          }
         >
-          <Icon path={mdiCancel} size={1} color="#e90000" />
+          {(this.props.tx.allowanceString === "none") ?
+            <Icon
+              path={mdiCheckboxMarkedCircleOutline}
+              size={1}
+              color="#78e900"
+            />
+            :
+            <Icon path={mdiCancel} size={1} color="#e90000" />
+          }
+
         </button>
       );
   }
 
+  getAllowance() {
+    return this.state.allowance ? this.state.allowance : this.props.tx.allowanceString
+  }
+
+  async requestAllowance() {
+    const allowance = await fetchAllowance(this.props.account, this.props.tx.token, this.props.tx.contract)
+    this.setState({
+      allowance
+    })
+  }
+
   render() {
     return (
-      <tr key={"allowance-nr-" + this.props.tx.hash}>
+      <tr key={"allowance-nr-" + this.props.tx.hash} className={this.props.tx.allowanceString}>
         <td className="grid-items">
           {new Date(parseInt(this.props.tx.timestamp) * 1000).toLocaleString()}
         </td>
@@ -126,10 +154,15 @@ class allowance extends Component {
           </a>
         </td>
         <td>
-        <a href={linkToTransaction(this.props.tx.hash)} target="_blank" rel='noreferrer'>
+          <a href={linkToTransaction(this.props.tx.hash)} target="_blank" rel='noreferrer'>
             {shorten(this.props.tx.hash)}
           </a></td>
-        <td className="grid-items">{this.props.tx.allowanceString }</td>
+        <td className="grid-items">
+          <button className="sync-btn icon-btn" onClick={this.requestAllowance}>
+            <span>{this.getAllowance()}</span>
+            <Icon path={mdiSync} size={0.8} />
+          </button>
+        </td>
         <td className="grid-items">{this.renderRevokeButton()}</td>
       </tr>
     );

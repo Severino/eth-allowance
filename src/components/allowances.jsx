@@ -1,11 +1,12 @@
 import React, { Component } from "react";
-import { getEndpoint, fetchTransactions, getName, getApprovalTransactions, noneAllowance } from "../helpers/helpers";
+import { getEndpoint, fetchTransactions, getName, getApprovalTransactions } from "../helpers/helpers";
 import Allowance from "./allowance";
 import Spinner from "./spinner";
 import Tip from "./tip";
 import WalletConnect from "./walletconnect";
 import { toast } from "react-toastify";
-
+import Icon from "@mdi/react";
+import { mdiEye, mdiEyeOff } from "@mdi/js";
 class allowances extends Component {
   state = {
     approvalMap: {},
@@ -16,8 +17,9 @@ class allowances extends Component {
     totalTransactionCount: null,
     currentTransactionCount: null,
     page: 0,
-    pageNum: 25,
-    moreTransactions: true
+    pageNum: 100,
+    moreTransactions: true,
+    showZeroAllowance: false
   };
 
   constructor(props) {
@@ -26,95 +28,101 @@ class allowances extends Component {
     this.walletUpdated = this.walletUpdated.bind(this);
     this.statusChanged = this.statusChanged.bind(this);
     this.loadMore = this.loadMore.bind(this)
+    this.disconnect = this.disconnect.bind(this)
+    this.init = this.init.bind(this)
   }
 
   componentDidMount() {
-    if (this.state.account) {
-      this.init()
-        .then((obj) => {
-          this.setState(obj);
-        })
-        .catch((err) => {
-          this.logError(err);
-        });
-    }
+    this.init()
+      .then((obj) => {
+        this.setState(obj);
+      })
+      .catch((err) => {
+        toast.error("Could not load application.")
+        console.error(err);
+      });
   }
 
   async init() {
+    if ((!this.state.account || !this.state.network) && window.ethereum != null) {
+      this.setState({
+        account: window.ethereum.selectedAddress,
+        network: parseInt(window.ethereum.chainId, 16)
+      })
+    };
+
     if (!this.state.account || !this.state.network) return null;
 
-    await this.updateTransactions()
+    try {
+      await this.updateTransactions()
+    } catch (e) {
+      toast.error(`Could not fetch transactions - try reloading the page.`)
+      console.error(e);
+    }
   }
 
   async updateTransactions() {
-    try {
-      this.setState({ loading: true });
+    this.setState({ loading: true });
 
-      const endpoint = getEndpoint(this.state.network);
-      if (!endpoint)
-        throw new Error("Wrong network! Change network and reload.");
+    const endpoint = getEndpoint(this.state.network);
+    if (!endpoint)
+      throw new Error("Wrong network! Change network and reload.");
 
-      let txs = await fetchTransactions(endpoint, this.state.account, {
-        page: this.state.page,
-        num: this.state.pageNum
-      });
+    let txs = await fetchTransactions(endpoint, this.state.account, {
+      page: this.state.page,
+      num: this.state.pageNum
+    });
 
-      if (txs.length < this.state.pageNum) {
-        await this.setState({
-          moreTransactions: false
-        })
-      }
-
-      const approvalMap = await getApprovalTransactions(txs)
-      const previousApprovalMap = this.state.approvalMap
-
-      /**
-       * Update approval map
-       */
-      for (let [contractAddress, tokens] of Object.entries(approvalMap)) {
-        if (!previousApprovalMap[contractAddress]) previousApprovalMap[contractAddress] = {}
-        for (let [tokenAddress, approvalObjects] of Object.entries(tokens)) {
-          if (!previousApprovalMap[contractAddress][tokenAddress]) previousApprovalMap[contractAddress][tokenAddress] = []
-          previousApprovalMap[contractAddress][tokenAddress].push(...approvalObjects)
-        }
-      }
-
-
-      let approveTransactions = []
-      for (let tokens of Object.values(previousApprovalMap)) {
-        for (let approvalObjects of Object.values(tokens)) {
-          const newestApproval = approvalObjects[0]
-
-          if(approvalObjects[0].allowance !== noneAllowance){
-            const approval = approvalObjects[0]
-            approveTransactions.push(approval)
-            approval.tokenName = await getName(approval.token)
-          }
-
-
-          for (let i = 1; i < approvalObjects.length; i++) {
-            if (newestApproval.timestamp - approvalObjects[i].timestamp < 0) {
-              console.error("CODE CONTAINS ERRORS: OLDER OBJECT WAS ADDED BEFORE!!!!")
-            }
-          }
-        }
-      }
-
-      approveTransactions = approveTransactions.sort((a, b) => {
-        return b.timestamp - a.timestamp
-      })
-
-
-
-
+    if (txs.length < this.state.pageNum) {
       await this.setState({
-        loading: false,
-        approveTransactions,
-        approvalMap: previousApprovalMap
-      });
-    } catch (e) {
-      this.setError(e);
+        moreTransactions: false
+      })
     }
+
+    const approvalMap = await getApprovalTransactions(txs)
+    const previousApprovalMap = this.state.approvalMap
+
+    /**
+     * Update approval map
+     */
+    for (let [contractAddress, tokens] of Object.entries(approvalMap)) {
+      if (!previousApprovalMap[contractAddress]) previousApprovalMap[contractAddress] = {}
+      for (let [tokenAddress, approvalObjects] of Object.entries(tokens)) {
+        if (!previousApprovalMap[contractAddress][tokenAddress]) previousApprovalMap[contractAddress][tokenAddress] = []
+        previousApprovalMap[contractAddress][tokenAddress].push(...approvalObjects)
+      }
+    }
+
+
+    let approveTransactions = []
+    for (let tokens of Object.values(previousApprovalMap)) {
+      for (let approvalObjects of Object.values(tokens)) {
+        const newestApproval = approvalObjects[0]
+
+        // if (approvalObjects[0].allowance !== noneAllowance) {
+        const approval = approvalObjects[0]
+        approveTransactions.push(approval)
+        approval.tokenName = await getName(approval.token)
+        // }
+
+
+        for (let i = 1; i < approvalObjects.length; i++) {
+          if (newestApproval.timestamp - approvalObjects[i].timestamp < 0) {
+            console.error("CODE CONTAINS ERRORS: OLDER OBJECT WAS ADDED BEFORE!!!!")
+          }
+        }
+      }
+    }
+
+    approveTransactions = approveTransactions.sort((a, b) => {
+      return b.timestamp - a.timestamp
+    })
+
+    await this.setState({
+      loading: false,
+      approveTransactions,
+      approvalMap: previousApprovalMap
+    });
   }
 
   setError(msg) {
@@ -132,14 +140,22 @@ class allowances extends Component {
   }
 
   async loadMore() {
-    const page = this.state.page + 1
     await this.setState({
-      page
+      page: this.state.page + 1
     })
-    this.updateTransactions()
+    try {
+      this.updateTransactions()
+    } catch (e) {
+      this.setState({
+        page: this.state.page - 1
+      })
+      toast.error(`Some error occured on load: try again!`)
+      console.error(e);
+    }
   }
 
   render() {
+    const that = this
     let elements = "";
     if (this.state.approveTransactions.length > 0) {
       elements = this.state.approveTransactions.map((tx) => {
@@ -158,8 +174,10 @@ class allowances extends Component {
     }
 
     function RenderTable(props) {
+
+      const revokedClass = that.state.showZeroAllowance ? "show-revoked" : "hide-revoked"
       return (
-        <table>
+        <table className={revokedClass}>
           <thead>
             <tr>
               <td className="grid-items">Time</td>
@@ -174,7 +192,6 @@ class allowances extends Component {
         </table>
       );
     }
-    const that = this
     function TransactionsContainer(props) {
       return (
         <div>
@@ -183,16 +200,27 @@ class allowances extends Component {
             address="0x23F822FC0CA75622cF6C48A4fba508E068f0E15b"
           />
 
+          <div className="options-btn interactive" onClick={() => that.setState({
+            showZeroAllowance: !that.state.showZeroAllowance
+          })}>
+            {
+              (that.state.showZeroAllowance) ?
+                <Icon path={mdiEyeOff} size={0.9} /> : <Icon path={mdiEye} size={0.9} />
+            }
+            <span>
+              {
+                (that.state.showZeroAllowance) ?
+                  "Hide Zero Allowances" : "Show Zero Allowances"
+              }
+            </span>
+          </div>
           <RenderTable elements={elements} />
-          {(props.loading) ?
-            <Spinner />
-            : (props.transactions.length === 0) ? <div className="info">No Approval Transactions Found</div> : (that.state.moreTransactions) ? <button className="more-btn center" onClick={that.loadMore}>Load More ...</button> : <div className="info">End Of Transactions History</div>
+          {
+            (props.loading) ?
+              <Spinner />
+              : (props.transactions.length === 0) ? <div className="info">No Approval Transactions Found</div> : (that.state.moreTransactions) ? <button className="more-btn center" onClick={that.loadMore}>Load More ...</button> : <div className="info">End Of Transactions History</div>
           }
-
-
-
-
-        </div>
+        </div >
       )
     }
 
@@ -201,12 +229,19 @@ class allowances extends Component {
         <WalletConnect
           account={this.state.account}
           network={this.state.network}
+          disconnect={this.disconnect}
           update={this.walletUpdated}
         />
         {((this.state.account) ?
           <TransactionsContainer account={this.state.account} loading={this.state.loading} transactions={this.state.approveTransactions} /> : "")}
       </div>
     );
+  }
+
+  disconnect() {
+    this.setState({
+      account: null
+    })
   }
 
   walletUpdated({ account, network } = {}) {
