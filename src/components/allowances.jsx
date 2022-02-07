@@ -7,6 +7,9 @@ import WalletConnect from "./walletconnect";
 import { toast } from "react-toastify";
 import Icon from "@mdi/react";
 import { mdiEye, mdiEyeOff } from "@mdi/js";
+import { shorten } from "../helpers/transaction";
+import ManualAllowance from "./manual_allowance";
+
 class allowances extends Component {
   state = {
     approvalMap: {},
@@ -102,8 +105,12 @@ class allowances extends Component {
         // if (approvalObjects[0].allowance !== noneAllowance) {
         const approval = approvalObjects[0]
         approveTransactions.push(approval)
-        approval.tokenName = await getName(approval.token)
-        // }
+        try {
+          approval.tokenName = await getName(approval.token)
+        } catch (e) {
+          approval.tokenName = shorten(approval.token, { length: 4 })
+          approval.error = "Could not fetch token name."
+        }
 
 
         for (let i = 1; i < approvalObjects.length; i++) {
@@ -200,6 +207,8 @@ class allowances extends Component {
             address="0x23F822FC0CA75622cF6C48A4fba508E068f0E15b"
           />
 
+          <ManualAllowance account={props.account} />
+
           <div className="options-btn interactive" onClick={() => that.setState({
             showZeroAllowance: !that.state.showZeroAllowance
           })}>
@@ -214,6 +223,7 @@ class allowances extends Component {
               }
             </span>
           </div>
+          {/* <ManualAllowanceDropdown /> */}
           <RenderTable elements={elements} />
           {
             (props.loading) ?

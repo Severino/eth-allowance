@@ -10,31 +10,33 @@
       padding: 5px 30px;
       border-radius: 5px;
       max-width: 420px;
-      margin: 20px auto;
+      margin: auto;
 
       display: flex;
       flex-direction: column;
       margin-bottom: 20px;
   }
 
-  .input {
+  .tip .input {
     position: relative;
     display: flex;
     margin-bottom: 10px;
   }
 
 
-  input {
+  .tip input {
     display: block;
     padding: 10px;
     border-top-left-radius: 5px;
     border-bottom-left-radius: 5px;
+    border-top-right-radius: 0px;
+    border-bottom-right-radius: 0px;
     text-align: right;
 
     border: 1px solid white;
   }
 
-  .input::before {
+  .tip .input::before {
     content: "ONE";
     position: absolute;
     color: black;
@@ -46,7 +48,7 @@
     transform: translateY(-50%);
   }
 
-  #tip-button{
+ .tip #tip-button{
     background:  linear-gradient(10deg,rgb(0, 174, 233), rgb(73 227 202));
     color: white;
     width: 100%;

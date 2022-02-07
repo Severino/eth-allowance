@@ -1,8 +1,7 @@
 import { toast } from 'react-toastify';
-import { shorten } from './transaction.js';
 
 const Web3 = require('web3');
-const web3 = new Web3(Web3.givenProvider);
+export const web3 = new Web3(Web3.givenProvider);
 const BN = web3.utils.BN;
 const request = require('superagent');
 const approvalHash = "0x095ea7b3";
@@ -116,21 +115,85 @@ export async function getApprovalTransactions(transactions) {
     return approveTransactions;
 }
 
+export function revoke(account, token, spender) {
+    // set the contract and make an approve transaction with a zero allowance
+    const contract = getERC20Contract(token)
+    return contract.methods
+        .approve(spender, 0)
+        .send({ from: account })
+    // is721(contract, this.props.tx.allowanceUnEdited).then((result) => {
+    //   if (result) {
+    //     //revoke erc721 by nulling the address
+    //     throw new Error("ERC 721 is not supported yet!")
+    //     // this.initRevoke();
+    //     // contract.methods
+    //     //   .approve(0, this.props.tx.allowanceUnEdited)
+    //     //   .send({ from: this.props.account })
+    //     //   .then(this.revokeSuccess)
+    //     //   .catch(this.revokeFailed);
+    //   } else {
+    // revoke erc20 by nulling approval amount
+    // this.initRevoke();
+
+
+    // });
+}
+
 export function getERC20Contract(address) {
     return new web3.eth.Contract(ERC20ABI, address);
 }
 
-export async function getName(contractAddress) {
-    let name = shorten(contractAddress, { length: 4 })
-    try {
-        const contract = getERC20Contract(contractAddress)
-        name = await contract.methods.name().call();
-    } catch (e) {
-        // name not found, just use contract address
-        console.error(e);
-    }
+export async function getERC20Token(address) {
+    const contract = getERC20Contract(address)
+    const batch = new web3.BatchRequest()
+    const result = await new Promise((resolve, reject) => {
 
-    return name
+        let name = null
+        let decimals = null
+
+        function checkResolve() {
+            if (name != null && decimals != null) {
+                resolve({ name, decimals })
+            }
+        }
+
+        batch.add(contract.methods.name().call.request({}, 'latest', (...args) => {
+            name = args[1]
+            checkResolve()
+        }))
+
+        batch.add(contract.methods.decimals().call.request({}, 'latest', (...args) => {
+            decimals = args[1]
+            checkResolve()
+        }))
+
+        batch.execute()
+
+        setTimeout(() => {
+            reject("Fetching tokens timed out.")
+        }, 3000)
+    })
+
+    console.log(result)
+
+
+    // const decimalPromise = new Promise((resolve) => {
+    //     batch.add(contract.methods.name().call.request({}, 'latest', (...args) => {
+    //         resolve(decimalPromise, args[1])
+    //     }))
+    // })
+
+
+
+
+    return Object.assign({
+        address
+    }, result)
+}
+
+export async function getName(contractAddress) {
+    const contract = getERC20Contract(contractAddress)
+    return await contract.methods.name().call();
 }
 
 export async function fetchAllowance(account, token, spender) {

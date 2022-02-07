@@ -7,15 +7,24 @@ export default class WalletConnect extends Component {
     super(props);
     this.connectMetaMask = this.connectMetaMask.bind(this);
     this.connectOneWallet = this.connectOneWallet.bind(this);
+    this.disconnect = this.disconnect.bind(this);
+  }
+
+  disconnect() {
+    this.props.disconnect()
   }
 
   render() {
-
+    const that = this
     function Account(props) {
       return <div className="account">
-        <span>{props.account}</span><button onClick={props.disconnect}>Disconnect</button>
+        <span>{props.account}</span><button onClick={that.disconnect}>Disconnect</button>
       </div>
     }
+
+
+
+
 
     function ConnectButton(props) {
       return <button onClick={props.connect}>Connect MetaMask</button>

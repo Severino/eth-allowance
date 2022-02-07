@@ -1,7 +1,6 @@
 import React, { Component } from "react";
-import { fetchAllowance, is721 } from "../helpers/helpers";
+import { fetchAllowance, revoke } from "../helpers/helpers";
 import dapps from "../helpers/dapps";
-import { ERC20ABI } from "../helpers/ABI";
 import Icon from "@mdi/react";
 import {
   mdiCancel,
@@ -24,6 +23,7 @@ class allowance extends Component {
       allowance: null
     }
 
+    this.setRevoke = this.setRevoke.bind(this);
     this.setRevokeClick = this.setRevokeClick.bind(this);
     this.dappURL = this.dappURL.bind(this);
     this.initRevoke = this.initRevoke.bind(this);
@@ -45,30 +45,24 @@ class allowance extends Component {
     return url;
   }
 
-  setRevokeClick() {
-    // set the contract and make an approve transaction with a zero allowance
-    const { web3 } = this.props;
-    const contract = new web3.eth.Contract(ERC20ABI, this.props.tx.token);
-    is721(contract, this.props.tx.allowanceUnEdited).then((result) => {
-      if (result) {
-        //revoke erc721 by nulling the address
-        throw new Error("ERC 721 is not supported yet!")
-        // this.initRevoke();
-        // contract.methods
-        //   .approve(0, this.props.tx.allowanceUnEdited)
-        //   .send({ from: this.props.account })
-        //   .then(this.revokeSuccess)
-        //   .catch(this.revokeFailed);
-      } else {
-        // revoke erc20 by nulling approval amount
-        this.initRevoke();
-        contract.methods
-          .approve(this.props.tx.contract, 0)
-          .send({ from: this.props.account })
-          .then(this.revokeSuccess)
-          .catch(this.revokeFailed);
-      }
-    });
+  async setRevokeClick() {
+    this.setRevoke(this.props.account, this.props.tx.token, this.props.tx.contract)
+  }
+
+  async setRevoke(account,
+    token,
+    contract) {
+    this.initRevoke();
+
+    try {
+      await revoke(account,
+        token,
+        contract)
+      this.revokeSuccess()
+    } catch (e) {
+      console.log(e)
+      this.revokeFailed(e.message)
+    }
   }
 
   initRevoke() {
