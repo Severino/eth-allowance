@@ -2,6 +2,7 @@ import Icon from "@mdi/react";
 import { mdiFlask, mdiSync } from '@mdi/js';
 import React, { Component } from 'react';
 import '../App.css';
+import pkg from "../../package.json"
 
 class header extends Component {
 
@@ -10,15 +11,15 @@ class header extends Component {
         return (
             <div>
                 <div className="experimental-warning">
-                    <Icon path={mdiFlask} size="16" color="white"/>
-                    Experimental
+                    <Icon path={mdiFlask} size="16" color="white" />
+                    Experimental { pkg.version }
                 </div>
                 <div className="jumbotron">
                     <div id="titles">
                         <img src="harmony-lock-logo.png" alt="Harmony Lock Logo" />
                         <h1>Harmony Allowance</h1>
                         <h2>Find &amp; revoke all the addresses that can spend your HRC20 tokens</h2>
-                        
+
                         <p>
                             The app looks up your transaction history for approval transactions.
                             If it finds some it shows them in the table. When the transaction has an input of
