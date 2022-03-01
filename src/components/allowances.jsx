@@ -201,7 +201,7 @@ class allowances extends Component {
     }
     function TransactionsContainer(props) {
       return (
-        <div>
+        <div className="transaction-container">
           <Tip
             account={props.account}
             address="0x23F822FC0CA75622cF6C48A4fba508E068f0E15b"

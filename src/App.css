@@ -25,6 +25,10 @@ table {
   width: 100%;
 }
 
+.transaction-container {
+  width: 100%;
+}
+
 input {
   display: block;
   padding: 10px;
